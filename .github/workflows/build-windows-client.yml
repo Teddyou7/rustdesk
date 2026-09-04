@@ -49,6 +49,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: x86_64-pc-windows-msvc
+          components: rustfmt
 
       - name: Configure vcpkg
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
@@ -84,11 +85,15 @@ jobs:
       - name: Build portable Windows client
         shell: pwsh
         run: |
-          python .\build.py --portable --flutter --skip-portable-pack --hwcodec --vram
+          $ErrorActionPreference = 'Stop'
+          python .\build.py --portable --flutter --skip-portable-pack
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Move-Item .\flutter\build\windows\x64\runner\Release .\rustdesk
           Push-Location .\libs\portable
           pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python .\generate.py -f ..\..\rustdesk -o . -e ..\..\rustdesk\rustdesk.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Pop-Location
           New-Item -ItemType Directory -Force .\dist | Out-Null
           Move-Item .\target\release\rustdesk-portable-packer.exe .\dist\RustDesk-portable-x64.exe
