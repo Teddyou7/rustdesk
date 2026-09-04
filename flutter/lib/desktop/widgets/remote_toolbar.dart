@@ -841,6 +841,9 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       state: widget.state,
       setFullscreen: _setFullscreen,
     ));
+    if (widget.ffi.connType == ConnType.defaultConn) {
+      toolbarItems.add(_RelativeMouseModeButton(ffi: widget.ffi));
+    }
     // Do not show keyboard for camera connection type.
     if (widget.ffi.connType == ConnType.defaultConn) {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
@@ -1295,6 +1298,31 @@ class _MonitorMenu extends StatelessWidget {
         openMonitorInTheSameTab(i, ffi, pi, updateCursorPos: !isMulti);
       }
     }
+  }
+}
+
+class _RelativeMouseModeButton extends StatelessWidget {
+  final FFI ffi;
+
+  const _RelativeMouseModeButton({required this.ffi});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!ffi.inputModel.isRelativeMouseModeSupported) {
+      return const Offstage();
+    }
+    return Obx(() {
+      final active = ffi.inputModel.relativeMouseMode.value;
+      final enabled = ffi.ffiModel.keyboard && !ffi.ffiModel.viewOnly;
+      return _IconMenuButton(
+        tooltip: 'Relative mouse mode',
+        icon: const Icon(Icons.mouse, color: Colors.white),
+        onPressed: enabled ? ffi.inputModel.toggleRelativeMouseMode : null,
+        color: active ? _ToolbarTheme.blueColor : _ToolbarTheme.inactiveColor,
+        hoverColor:
+            active ? _ToolbarTheme.hoverBlueColor : _ToolbarTheme.hoverInactiveColor,
+      );
+    });
   }
 }
 
@@ -2560,6 +2588,7 @@ class _KeyboardMenu extends StatelessWidget {
               if ([kPeerPlatformWindows, kPeerPlatformMacOS, kPeerPlatformLinux]
                   .contains(pi.platform))
                 showMyCursor(),
+              relativeMouseMode(),
               Divider(),
               ...toolbarToggles(),
               ...mouseSpeed(),
@@ -2753,6 +2782,23 @@ class _KeyboardMenu extends StatelessWidget {
             ffi: ffi,
             child: Text(translate('Show my cursor')))
         .paddingOnly(left: 26.0);
+  }
+
+  relativeMouseMode() {
+    if (!ffi.inputModel.isRelativeMouseModeSupported) return Offstage();
+    final enabled = ffi.ffiModel.keyboard && !ffi.ffiModel.viewOnly;
+    return Obx(() => CkbMenuButton(
+          value: ffi.inputModel.relativeMouseMode.value,
+          onChanged: enabled
+              ? (value) {
+                  if (value != null) {
+                    ffi.inputModel.setRelativeMouseMode(value);
+                  }
+                }
+              : null,
+          ffi: ffi,
+          child: Text('${translate('Relative mouse mode')} (Ctrl+Alt+Enter)'),
+        ));
   }
 
   mobileActions() {
