@@ -320,7 +320,19 @@ class _ConnectionPageState extends State<ConnectionPage>
           ],
         ).paddingOnly(left: 12.0)),
         if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
+        if (!isOutgoingOnly)
+          Row(
+            children: [
+              const Expanded(child: OnlineStatusWidget()),
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text(
+                  'Teddyou特供版本',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ],
+          )
       ],
     );
   }

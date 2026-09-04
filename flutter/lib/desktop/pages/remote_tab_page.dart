@@ -560,7 +560,6 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 }
 
 /// A widget that displays a hint in the tab bar when relative mouse mode is active.
-/// This helps users remember how to exit relative mouse mode.
 class _RelativeMouseModeHint extends StatelessWidget {
   final DesktopTabController tabController;
 
@@ -611,8 +610,7 @@ class _RelativeMouseModeHint extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              translate(
-                  'rel-mouse-exit-{${isMacOS ? "Cmd+G" : "Ctrl+Alt"}}-tip'),
+              '${translate('Relative mouse mode')} (Ctrl+Alt+Enter)',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.orange[700],

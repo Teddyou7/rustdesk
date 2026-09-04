@@ -48,9 +48,7 @@ class RelativeMouseModel {
   // The currently active model receiving native mouse delta events.
   // Note: Race condition between multiple sessions is not a concern here because
   // when relative mouse mode is active, the cursor is locked and the user cannot
-  // switch to another session window. The user must first exit relative mouse mode
-  // (via Cmd+G on macOS or Ctrl+Alt on Windows/Linux) before they can interact
-  // with a different session.
+  // switch to another session window until leaving relative mouse mode.
   static RelativeMouseModel? _activeNativeModel;
   static bool _hostChannelInitialized = false;
 
@@ -93,10 +91,7 @@ class RelativeMouseModel {
     }
 
     // Defensive guard: prevent overwriting an already-active native session.
-    // In practice, this should not happen because when relative mouse mode is active,
-    // the cursor is locked and the user cannot switch to another session window.
-    // The user must first exit relative mouse mode (via Cmd+G on macOS or Ctrl+Alt on
-    // Windows/Linux) before interacting with a different session.
+    // In practice, this should not happen because an active mode locks the cursor.
     if (_activeNativeModel != null && _activeNativeModel != this) {
       debugPrint(
           '[RelMouse] Another model already has native relative mouse mode active');
@@ -177,9 +172,7 @@ class RelativeMouseModel {
   // between Rust rdev grab loop and Flutter keyboard handling.
   DateTime? _lastToggle;
 
-  // Track key down state for exit shortcut.
-  // macOS: Cmd+G - track G key
-  // Windows/Linux: Ctrl+Alt - track whichever modifier was pressed last
+  // Track the Enter key for the Ctrl+Alt+Enter toggle shortcut.
   // When key down is blocked (shortcut triggered), we also need to block
   // the corresponding key up to avoid orphan key up events being sent to remote.
   bool _exitShortcutKeyDown = false;
@@ -217,18 +210,16 @@ class RelativeMouseModel {
     _pointerRegionTopLeftGlobal = e.position - e.localPosition;
   }
 
-  /// Shared helper for handling exit shortcut for relative mouse mode.
+  /// Shared helper for handling the relative mouse mode toggle shortcut.
   /// Returns true if the event was handled and should not be forwarded.
   ///
-  /// Exit shortcuts (only work when relative mouse mode is active):
-  /// - macOS: Cmd+G
-  /// - Windows/Linux: Ctrl+Alt (any order - triggered when both are pressed)
+  /// Ctrl+Alt+Enter toggles relative mouse mode.
   ///
   /// [logicalKey] - the logical key of the event
   /// [isKeyUp] - whether the event is a key up event
   /// [isKeyDown] - whether the event is a key down event
   /// [ctrlPressed], [altPressed], [commandPressed] - modifier states
-  bool _handleExitShortcut({
+  bool _handleToggleShortcut({
     required LogicalKeyboardKey logicalKey,
     required bool isKeyUp,
     required bool isKeyDown,
@@ -238,9 +229,6 @@ class RelativeMouseModel {
   }) {
     if (!isDesktop || !keyboardPerm() || isViewCamera()) return false;
 
-    // Only handle exit shortcuts when relative mouse mode is active
-    if (!enabled.value) return false;
-
     // Block key up if key down was blocked (to avoid orphan key up event on remote).
     if (isKeyUp && _exitShortcutKeyDown) {
       _exitShortcutKeyDown = false;
@@ -249,28 +237,11 @@ class RelativeMouseModel {
 
     if (!isKeyDown) return false;
 
-    // macOS: Cmd+G to exit
-    if (isMacOS) {
-      final isGKey = logicalKey == LogicalKeyboardKey.keyG;
-      if (isGKey && commandPressed) {
-        _exitShortcutKeyDown = true;
-        setRelativeMouseMode(false);
-        return true;
-      }
-      return false;
-    }
-
-    // Windows/Linux: Ctrl+Alt to exit
-    // Triggered when both modifiers are pressed (check on either Ctrl or Alt key down)
-    final isCtrlKey = logicalKey == LogicalKeyboardKey.controlLeft ||
-        logicalKey == LogicalKeyboardKey.controlRight;
-    final isAltKey = logicalKey == LogicalKeyboardKey.altLeft ||
-        logicalKey == LogicalKeyboardKey.altRight;
-
-    // When Ctrl is pressed and Alt is already down, or vice versa
-    if ((isCtrlKey && altPressed) || (isAltKey && ctrlPressed)) {
+    final isEnterKey = logicalKey == LogicalKeyboardKey.enter ||
+        logicalKey == LogicalKeyboardKey.numpadEnter;
+    if (isEnterKey && ctrlPressed && altPressed) {
       _exitShortcutKeyDown = true;
-      setRelativeMouseMode(false);
+      toggleRelativeMouseMode();
       return true;
     }
 
@@ -284,7 +255,7 @@ class RelativeMouseModel {
     required bool altPressed,
     required bool commandPressed,
   }) {
-    return _handleExitShortcut(
+    return _handleToggleShortcut(
       logicalKey: e.logicalKey,
       isKeyUp: e is KeyUpEvent,
       isKeyDown: e is KeyDownEvent,
@@ -298,7 +269,7 @@ class RelativeMouseModel {
   /// Returns true if the event was handled and should not be forwarded.
   bool handleRawKeyEvent(RawKeyEvent e) {
     final modifiers = e.data;
-    return _handleExitShortcut(
+    return _handleToggleShortcut(
       logicalKey: e.logicalKey,
       isKeyUp: e is RawKeyUpEvent,
       isKeyDown: e is RawKeyDownEvent,
@@ -484,9 +455,7 @@ class RelativeMouseModel {
 
     // Show toast notification so user knows how to exit relative mouse mode (desktop only).
     if (isDesktop) {
-      showToast(
-          translate('rel-mouse-exit-{${isMacOS ? "Cmd+G" : "Ctrl+Alt"}}-tip'),
-          alignment: Alignment.center);
+      showToast(translate('Relative mouse mode'), alignment: Alignment.center);
     }
 
     // Best-effort marker for Rust rdev grab loop (ESC behavior) and peer/server state.

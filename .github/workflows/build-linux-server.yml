@@ -1,0 +1,53 @@
+name: 编译 Linux 服务端
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: RustDesk Server branch, tag, or commit to build
+        required: false
+        default: master
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  linux-server:
+    name: Linux 服务端二进制（x64 musl）
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 检出 RustDesk Server
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: rustdesk/rustdesk-server
+          ref: ${{ inputs.server_ref }}
+          submodules: recursive
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-musl
+
+      - name: 缓存 Rust 构建文件
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          prefix-key: rustdesk-server-musl-x64
+
+      - name: 编译 hbbs 和 hbbr
+        uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1
+        with:
+          command: build
+          args: --locked --release --all-features --target x86_64-unknown-linux-musl
+          use-cross: true
+
+      - name: 上传 Linux 服务端二进制
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: rustdesk-server-linux-x64-musl
+          if-no-files-found: error
+          path: |
+            target/x86_64-unknown-linux-musl/release/hbbs
+            target/x86_64-unknown-linux-musl/release/hbbr
+            target/x86_64-unknown-linux-musl/release/rustdesk-utils
