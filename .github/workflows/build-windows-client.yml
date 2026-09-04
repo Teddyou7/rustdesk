@@ -71,8 +71,8 @@ jobs:
         run: |
           flutter precache --windows
           Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile engine.zip
-          Expand-Archive -Path engine.zip -DestinationPath engine
-          Move-Item -Force engine\windows-x64-release\* "C:\hostedtoolcache\windows\flutter\stable-${{ env.FLUTTER_VERSION }}-x64\bin\cache\artifacts\engine\windows-x64-release\"
+          Expand-Archive -Path engine.zip -DestinationPath windows-x64-release
+          Move-Item -Force windows-x64-release\* "C:\hostedtoolcache\windows\flutter\stable-${{ env.FLUTTER_VERSION }}-x64\bin\cache\artifacts\engine\windows-x64-release\"
 
       - name: Apply Flutter compatibility patch
         shell: bash
